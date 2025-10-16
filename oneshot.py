@@ -1371,6 +1371,8 @@ class Companion:
         self.generator = WPSpin()
 
     def __init_wpa_supplicant(self):
+        if not shutil.which("wpa_supplicant"):
+            die("[!] wpa_supplicant not found. Please install it to use this tool.")
         print('[*] Running wpa_supplicant…')
         cmd = 'wpa_supplicant -K -d -Dnl80211,wext,hostapd,wired -i{} -c{}'.format(self.interface, self.tempconf)
         self.wpas = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
@@ -1505,6 +1507,9 @@ class Companion:
         return True
 
     def __runPixiewps(self, showcmd=False, full_range=False):
+        if not shutil.which("pixiewps"):
+            print("[!] Pixiewps not found. Please install it to use this feature.")
+            return False
         print("[*] Running Pixiewps…")
         cmd = self.pixie_creds.get_pixie_cmd(full_range)
         if showcmd:
@@ -1842,9 +1847,13 @@ class WiFiScanner:
             networks[-1]['Device name'] = codecs.decode(d, 'unicode-escape').encode('latin1').decode('utf-8', errors='replace')
 
         cmd = 'iw dev {} scan'.format(self.interface)
-        proc = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE,
-                              stderr=subprocess.STDOUT, encoding='utf-8', errors='replace')
-        lines = proc.stdout.splitlines()
+        try:
+            proc = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE,
+                                  stderr=subprocess.STDOUT, encoding='utf-8', errors='replace', check=True)
+            lines = proc.stdout.splitlines()
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            print(f"[!] Error running '{cmd}'. Make sure 'iw' is installed and you have permissions.")
+            return False
         networks = []
         matchers = {
             re.compile(r'BSS (\S+)( )?\(on \w+\)'): handle_network,
