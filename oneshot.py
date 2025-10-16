@@ -789,7 +789,7 @@ class MenuHandler:
         except:
             return "wlan0"
             
-    def show_wifi_networks(self, attack_mode="pixie", pin=None):
+    def show_wifi_networks(self, attack_mode="pixie"):
         """Show available networks and let user select"""
         try:
             with open('vulnwsc.txt', 'r', encoding='utf-8') as file:
@@ -808,12 +808,12 @@ class MenuHandler:
             try:
                 choice = input("\n[?] Select network number (or 'r' to rescan): ").strip()
                 if choice.lower() == 'r':
-                    return self.show_wifi_networks(attack_mode, pin)
+                    return self.show_wifi_networks(attack_mode)
 
                 network_num = int(choice)
                 if network_num in networks:
                     selected_network = networks[network_num]
-                    return self._attack_selected_network(selected_network, attack_mode, pin)
+                    return self._attack_selected_network(selected_network, attack_mode)
                 else:
                     print("[-] Invalid selection")
             except ValueError:
@@ -821,7 +821,7 @@ class MenuHandler:
             except KeyboardInterrupt:
                 return None
 
-    def _attack_selected_network(self, network, attack_mode, pin=None):
+    def _attack_selected_network(self, network, attack_mode):
         """Attack the selected network"""
         bssid = network['BSSID']
         essid = network['ESSID']
@@ -1272,6 +1272,29 @@ class MenuHandler:
             return
 
         self.show_wifi_networks(attack_mode="custom_pin", pin=pin)
+
+    def show_connected_devices(self):
+        """Show devices connected to the network"""
+        if not shutil.which("arp-scan"):
+            print("[!] arp-scan is not installed. Please install it to use this feature.")
+            if input("[?] Do you want to install it now? (y/n): ").lower() == 'y':
+                try:
+                    subprocess.run("pkg install -y arp-scan", shell=True, check=True)
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    print("[-] Failed to install arp-scan. Please install it manually.")
+                    return
+            else:
+                return
+
+        print("\n[*] Scanning for connected devices...")
+        try:
+            result = subprocess.run(f"arp-scan --localnet --interface={self.interface}", shell=True, capture_output=True, text=True, check=True)
+            print(result.stdout)
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            print(f"[-] Error running arp-scan: {e}")
+            print("[-] Make sure you are connected to a WiFi network.")
+
+        input("\n[+] Press Enter to continue...")
         
     def run_menu(self):
         """Main menu loop"""
@@ -1303,12 +1326,15 @@ class MenuHandler:
                     self.enter_pin_and_get_key()
                     
                 elif choice == "7":
+                    self.show_connected_devices()
+
+                elif choice == "8":
                     print("\n[*] 👋 Thanks for using W8Team WiFi Hacker!")
                     print("[*] 📱 Follow us: https://t.me/W8SOJIB")
                     break
                     
                 else:
-                    print("[-] Invalid option. Please select 1-7")
+                    print("[-] Invalid option. Please select 1-8")
                     time.sleep(1)
                     
             except KeyboardInterrupt:
@@ -2064,7 +2090,8 @@ def show_main_menu():
 ║  [4] 🤖 AI PIN Prediction - ALL 100 Million PINs Attack     ║
 ║  [5] 📋 View All Saved Passwords                            ║
 ║  [6] ✍️ Enter Pin and Get Key                               ║
-║  [7] 🚪 Exit                                                ║
+║  [7] 📡 Show Connected Devices                              ║
+║  [8] 🚪 Exit                                                ║
 ╚══════════════════════════════════════════════════════════════╝
     """
     print(menu)
