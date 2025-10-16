@@ -1,4 +1,4 @@
-# 🛡️ W8Team WiFi Hacker - Advanced Auto System
+# 🛡️ DIFI WiFi Hacker - Advanced Auto System
 
 <div align="center">
 
@@ -77,7 +77,7 @@ Unlike traditional WiFi tools that require extensive manual configuration, W8Tea
 #### **🚀 Quick Install (1-Minute Setup)**
 ```bash
 # Copy and paste this entire block:
-pkg update && pkg upgrade -y && pkg install -y root-repo && pkg install -y git tsu python wpa-supplicant pixiewps iw openssl python-pip aircrack-ng hashcat && pip install pyfiglet psutil requests && git clone https://github.com/W8SOJIB/W8RootWifiHKV2 && cd W8RootWifiHKV2 && echo "🎉 Ready to hack! Run: tsu && sudo python oneshot.py"
+pkg update && pkg upgrade -y && pkg install -y root-repo && pkg install -y git tsu python wpa-supplicant pixiewps iw openssl python-pip aircrack-ng hashcat && pip install pyfiglet psutil requests && git clone https://github.com/kingmizan/difi.git && cd difi && echo "🎉 Ready to hack! Run: tsu && sudo python oneshot.py"
 ```
 
 #### **📋 Step-by-Step Installation**
